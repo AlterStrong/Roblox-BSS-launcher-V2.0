@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Menghapus file indikator agar spam bisa aktif kembali saat waktunya
+# Hapus file ping manual (optional)
 
-rm -f "$HOME/touch_ping.txt"
-echo "Touch ping dihapus (spam bisa aktif kembali)"
+rm -f "$HOME/ping_active"
+echo "File ping dihapus."
