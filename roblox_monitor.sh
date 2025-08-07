@@ -1,40 +1,91 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-# === KONFIGURASI ===
-GAME_LINK="roblox://placeId=1537690962"
+GAME_LINK="roblox://placeId=1537690962/"
 PKG_NAME="com.roblox.client"
-DISCORD_WEBHOOK="https://discord.com/api/webhooks/1363321007389020200/l6y9LMQzwcFu15uiQfC8XawlcqixNLukLcPoREBXyXYNqK9mFwGRW6qbgNJYmCTi9v_f"
-CHECK_INTERVAL=300  # 5 menit (dalam detik)
-MAX_RUNNING_TIME=$((2 * 60 * 60))  # 2 jam dalam detik
-SPAM_INTERVAL=10  # Spam ping setiap 10 detik
-LOG_FILE="$HOME/roblox_monitor_log.txt"
+DISCORD_WEBHOOK="https://discord.com/api/webhooks/..."  # Ganti dengan milikmu
 
-# === FUNGSI ===
+LOG_FILE="$HOME/roblox_log.txt"
+PING_FLAG="$HOME/.roblox_ping_active"
+TOUCH_FILE="$HOME/.roblox_touched"
+
+MAX_RUNNING_TIME=$((1 * 60))  # 1 menit
+SPAM_INTERVAL=10  # Detik
+TOUCH_TIMEOUT=30  # Detik
+
+running_duration=0
+previous_state="closed"
+last_notif_time=0
+
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
 send_discord() {
   curl -s -X POST -H "Content-Type: application/json" \
-    -d "{\"content\": \"$1\"}" "$DISCORD_WEBHOOK" > /dev/null
+    -d "{\"content\": \"$1\"}" "$DISCORD_WEBHOOK" >/dev/null
 }
 
-is_roblox_running() {
-  dumpsys window windows | grep -i "$PKG_NAME" > /dev/null 2>&1
-  return $?
+is_roblox_open() {
+  dumpsys window windows | grep -qE "mCurrentFocus.+$PKG_NAME"
 }
-
-# === LOOP MONITORING ===
-echo "[$(date)] Monitoring Roblox dimulai..." >> "$LOG_FILE"
-send_discord "@everyone Skrip monitoring Roblox telah AKTIF."
-
-start_time=0
-already_opened=false
-spam_active=false
 
 while true; do
-  if is_roblox_running; then
-    if [ "$already_opened" = false ]; then
-      already_opened=true
-      start_time=$(date +%s)
-      send_discord "@everyone Roblox telah DIBUKA!"
-      echo "[$(date)] Roblox dibuka." >> "$LOG_FILE"
+  if is_roblox_open; then
+    if [ "$previous_state" = "closed" ]; then
+      send_discord "@everyone Roblox dibuka"
+      log "Roblox dibuka"
+      running_duration=0
+      previous_state="open"
+    fi
+
+    sleep 5
+    running_duration=$((running_duration + 5))
+
+    if [ "$running_duration" -ge "$MAX_RUNNING_TIME" ]; then
+      if [ ! -f "$PING_FLAG" ]; then
+        touch "$PING_FLAG"
+        log "Mulai spam ping karena sudah 1 menit"
+      fi
+
+      touch_start_time=$(date +%s)
+
+      while [ -f "$PING_FLAG" ]; do
+        send_discord "@here Sudah 1 menit (TEST)! Cek HP sekarang!"
+        sleep "$SPAM_INTERVAL"
+
+        if [ -f "$TOUCH_FILE" ]; then
+          rm -f "$TOUCH_FILE"
+          touch_start_time=$(date +%s)
+        else
+          now=$(date +%s)
+          elapsed=$((now - touch_start_time))
+          if [ "$elapsed" -ge "$TOUCH_TIMEOUT" ]; then
+            log "Spam dihentikan karena tidak ada touch dalam 30 detik"
+            rm -f "$PING_FLAG"
+            running_duration=0
+            break
+          fi
+        fi
+      done
+    fi
+
+  else
+    if [ "$previous_state" = "open" ]; then
+      send_discord "@everyone Roblox ditutup"
+      log "Roblox ditutup"
+      previous_state="closed"
+      running_duration=0
+      rm -f "$PING_FLAG"
+    fi
+
+    log "Roblox tidak terbuka, mencoba membuka..."
+    am start -a android.intent.action.VIEW -d "$GAME_LINK"
+    send_discord "@everyone Roblox tidak aktif. Membuka kembali..."
+    sleep 5
+  fi
+
+  sleep 295
+done      echo "[$(date)] Roblox dibuka." >> "$LOG_FILE"
     fi
 
     current_time=$(date +%s)
