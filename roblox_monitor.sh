@@ -1,40 +1,58 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
 # === KONFIGURASI ===
-GAME_LINK="roblox://placeId=1537690962"
 PKG_NAME="com.roblox.client"
-DISCORD_WEBHOOK="https://discord.com/api/webhooks/1363321007389020200/l6y9LMQzwcFu15uiQfC8XawlcqixNLukLcPoREBXyXYNqK9mFwGRW6qbgNJYmCTi9v_f"
-CHECK_INTERVAL=300  # 5 menit
-SPAM_INTERVAL=10
-MAX_RUNNING_TIME=360  # 6 menit untuk deteksi freeze
-PING_FILE="$HOME/stop_spam"
+LOG_FILE="$HOME/roblox_log.txt"
+WEBHOOK_URL="https://discord.com/api/webhooks/1363321007389020200/l6y9LMQzwcFu15uiQfC8XawlcqixNLukLcPoREBXyXYNqK9mFwGRW6qbgNJYmCTi9v_f"
 
-last_open_time=0
-already_notified=0
-
+# === FUNGSI ===
 send_discord() {
-  curl -s -H "Content-Type: application/json" \
-    -X POST -d "{\"content\": \"$1\"}" "$DISCORD_WEBHOOK" > /dev/null
+  curl -s -X POST -H "Content-Type: application/json" \
+    -d "{\"content\": \"$1\"}" "$WEBHOOK_URL" > /dev/null
 }
 
-is_roblox_running() {
-  dumpsys window windows | grep -i "$PKG_NAME" > /dev/null 2>&1
-  return $?
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
 }
+
+# === MONITORING ===
+prev_status="closed"
+uptime_start=$(date +%s)
+last_reminder=$(date +%s)
+reminder_interval=$((2 * 60 * 60)) # 2 jam
 
 while true; do
-  timestamp=$(date +%s)
+  app_status=$(dumpsys window windows | grep -i "mCurrentFocus" | grep "$PKG_NAME")
 
-  if is_roblox_running; then
-    echo "[✓] Roblox sedang berjalan..."
-
-    if [ "$last_open_time" -eq 0 ]; then
-      last_open_time=$timestamp
+  if [ -n "$app_status" ]; then
+    if [ "$prev_status" = "closed" ]; then
+      send_discord "@everyone ✅ Roblox telah DIBUKA kembali."
+      log "Roblox dibuka"
+      prev_status="opened"
     fi
 
-    # Deteksi apakah stuck terlalu lama
-    running_duration=$((timestamp - last_open_time))
-    if [ "$running_duration" -ge "$MAX_RUNNING_TIME" ]; then
+    now=$(date +%s)
+    if (( now - last_reminder >= reminder_interval )); then
+      uptime=$(( (now - uptime_start) / 3600 ))
+      send_discord "⏱️ Reminder: Roblox aktif selama $uptime jam."
+      last_reminder=$now
+    fi
+
+  else
+    if [ "$prev_status" = "opened" ]; then
+      send_discord "@everyone ❌ Roblox DITUTUP oleh pengguna."
+      log "Roblox ditutup"
+      prev_status="closed"
+    fi
+
+    # Coba buka kembali
+    am start -a android.intent.action.VIEW -d "roblox://placeId=1537690962" > /dev/null 2>&1
+    log "Roblox dibuka kembali via link"
+    send_discord "@everyone 🚀 Membuka ulang Roblox..."
+  fi
+
+  sleep 300 # tunggu 5 menit
+done    if [ "$running_duration" -ge "$MAX_RUNNING_TIME" ]; then
       echo "[!] Roblox kemungkinan stuck di tampilan disconnect!"
       send_discord "@here Roblox kemungkinan stuck di layar disconnect!"
 
