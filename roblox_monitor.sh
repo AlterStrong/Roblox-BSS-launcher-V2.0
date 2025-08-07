@@ -4,7 +4,7 @@
 GAME_LINK="roblox://placeId=1537690962/"
 PKG_NAME="com.roblox.client"
 LOG_FILE="$HOME/roblox_log.txt"
-DISCORD_WEBHOOK="https://discord.com/api/webhooks/..."  # Ganti dengan webhook milikmu
+DISCORD_WEBHOOK="https://discord.com/api/webhooks/1363321007389020200/l6y9LMQzwcFu15uiQfC8XawlcqixNLukLcPoREBXyXYNqK9mFwGRW6qbgNJYmCTi9v_f"  # Ganti dengan webhook milikmu
 
 REMINDER_INTERVAL=$((2 * 60 * 60))  # 2 jam
 PING_TIMEOUT=30  # detik
