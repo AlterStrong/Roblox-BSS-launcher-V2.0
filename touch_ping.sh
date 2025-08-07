@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Membuat file indikator bahwa user sudah menyentuh/memerintah hentikan spam sementara
+# Sentuh file ping untuk hentikan spam ping sementara
 
-touch "$HOME/touch_ping.txt"
-echo "Spam dihentikan sementara (touch_ping.txt dibuat)"
+touch "$HOME/ping_active"
+echo "Sentuhan ping terkirim. Spam akan berhenti jika masih berlangsung."
