@@ -1,22 +1,19 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-# === Konfigurasi repo ===
-REPO_URL="https://raw.githubusercontent.com/AlterStrong/Roblox-BSS-launcher-V2.0/main"
+# Unduh semua skrip
+cd $HOME
+base_url="https://raw.githubusercontent.com/AlterStrong/Roblox-BSS-launcher-V2.0/main"
 
-# === Buat folder shortcuts jika belum ada ===
-mkdir -p ~/.shortcuts
+files=("roblox_monitor.sh" "start.sh" "stop.sh" "touch_ping.sh" "remove_ping.sh")
+for file in "${files[@]}"; do
+  curl -o "$file" "$base_url/$file"
+  chmod +x "$file"
+done
 
-# === Unduh semua skrip ===
-curl -o "$HOME/roblox_monitor.sh" "$REPO_URL/roblox_monitor.sh"
-curl -o "$HOME/start.sh" "$REPO_URL/start.sh"
-curl -o "$HOME/stop.sh" "$REPO_URL/stop.sh"
-curl -o "$HOME/touch_ping.sh" "$REPO_URL/touch_ping.sh"
-curl -o "$HOME/remove_ping.sh" "$REPO_URL/remove_ping.sh"
+# Minta izin termux-api
+termux-toast "Meminta izin..."
+termux-notification --title "Roblox Monitor" --content "Pastikan izinkan akses penggunaan aplikasi & overlay."
+termux-open-app com.termux
+am start -a android.settings.USAGE_ACCESS_SETTINGS
 
-# === Beri izin eksekusi ===
-chmod +x "$HOME/"*.sh
-
-# === Pindahkan ke folder shortcut untuk Termux Widget ===
-mv "$HOME/start.sh" "$HOME/stop.sh" "$HOME/touch_ping.sh" "$HOME/remove_ping.sh" "$HOME/.shortcuts/"
-
-echo "✅ Semua skrip telah diinstal dan shortcut telah disiapkan di Termux Widget."
+echo "Setup selesai. Gunakan 'bash start.sh' untuk memulai."
