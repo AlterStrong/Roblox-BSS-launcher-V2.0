@@ -1,40 +1,87 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-GAME_LINK="roblox://placeId=1537690962/"
+# === KONFIGURASI ===
+GAME_LINK="roblox://placeId=1537690962"
 PKG_NAME="com.roblox.client"
-DISCORD_WEBHOOK="https://discord.com/api/webhooks/..."  # Ganti dengan milikmu
-
 LOG_FILE="$HOME/roblox_log.txt"
-PING_FLAG="$HOME/.roblox_ping_active"
-TOUCH_FILE="$HOME/.roblox_touched"
+DISCORD_WEBHOOK="https://discord.com/api/webhooks/..."  # Ganti dengan milikmu
+PING_FILE="$HOME/ping_active"
 
-MAX_RUNNING_TIME=$((1 * 60))  # 1 menit
-SPAM_INTERVAL=10  # Detik
-TOUCH_TIMEOUT=30  # Detik
-
-running_duration=0
-previous_state="closed"
-last_notif_time=0
-
-log() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
-}
+# === VARIABEL ===
+last_status="unknown"
+start_time=$(date +%s)
+last_ping_check=$(date +%s)
 
 send_discord() {
-  curl -s -X POST -H "Content-Type: application/json" \
-    -d "{\"content\": \"$1\"}" "$DISCORD_WEBHOOK" >/dev/null
+  local message="$1"
+  curl -H "Content-Type: application/json" \
+       -X POST \
+       -d "{\"content\": \"$message\"}" \
+       "$DISCORD_WEBHOOK" >/dev/null 2>&1
 }
 
-is_roblox_open() {
-  dumpsys window windows | grep -qE "mCurrentFocus.+$PKG_NAME"
+is_roblox_running() {
+  dumpsys window windows | grep -iq "$PKG_NAME"
+  return $?
 }
+
+check_ping_touched() {
+  local now=$(date +%s)
+  if [[ -f "$PING_FILE" ]]; then
+    local last_touch=$(stat -c %Y "$PING_FILE")
+    local diff=$((now - last_touch))
+    if (( diff <= 30 )); then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+start_spam_ping() {
+  echo "[$(date)] Memulai spam ping karena 2 jam aktif." >> "$LOG_FILE"
+  while true; do
+    if check_ping_touched; then
+      echo "[$(date)] Touch ping terdeteksi, menghentikan spam sementara." >> "$LOG_FILE"
+      break
+    fi
+    send_discord "@here Cek HP kamu! Roblox sudah 2 jam nonstop."
+    sleep 10
+  done
+}
+
+echo "[$(date)] Monitoring Roblox dimulai." >> "$LOG_FILE"
 
 while true; do
-  if is_roblox_open; then
-    if [ "$previous_state" = "closed" ]; then
-      send_discord "@everyone Roblox dibuka"
-      log "Roblox dibuka"
-      running_duration=0
+  if is_roblox_running; then
+    if [[ "$last_status" != "running" ]]; then
+      send_discord "@everyone Roblox dibuka."
+      echo "[$(date)] Roblox dibuka." >> "$LOG_FILE"
+      start_time=$(date +%s)
+      last_ping_check=$start_time
+      last_status="running"
+    else
+      now=$(date +%s)
+      uptime=$((now - start_time))
+
+      if (( uptime >= 7200 )); then
+        # Sudah 2 jam
+        if (( now - last_ping_check >= 7200 )); then
+          start_spam_ping
+          last_ping_check=$(date +%s)
+        fi
+      fi
+    fi
+  else
+    if [[ "$last_status" != "stopped" ]]; then
+      send_discord "@everyone Roblox ditutup."
+      echo "[$(date)] Roblox ditutup." >> "$LOG_FILE"
+      last_status="stopped"
+    fi
+    start_time=$(date +%s)
+    last_ping_check=$start_time
+  fi
+  sleep 300
+done      running_duration=0
       previous_state="open"
     fi
 
